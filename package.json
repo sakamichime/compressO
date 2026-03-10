@@ -21,7 +21,7 @@
     "tauri:build:mac": "pnpm tauri:build:mac:arm64 && pnpm tauri:build:mac:x64",
     "homebrew:release": "./scripts/homebrew-release.sh",
     "pnpm:devPreinstall": "fnm use",
-    "postinstall": "husky install",
+    "postinstall": "husky install || true",
     "lint-staged": "lint-staged",
     "tsc:check": "tsc --noEmit --skipLibCheck"
   },
