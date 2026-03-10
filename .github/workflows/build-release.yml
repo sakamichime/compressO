@@ -72,37 +72,18 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'CompressO ${{ github.ref_name }}'
-          releaseBody: 'See the assets to download and install this version.'
-          releaseDraft: true
-          prerelease: false
-          args: ${{ matrix.args }}
-
-  create-release:
-    needs: build-tauri
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: 'CompressO ${{ github.ref_name }}'
-          body: |
+          releaseBody: |
             ## What's Changed
             
-            ### New Features
+            ### ✨ New Features
             - 🌍 Multi-language support (11 languages): English, 中文, 日本語, 한국어, Español, Français, Deutsch, Русский, Português, Tiếng Việt, Bahasa Indonesia
             - 🚀 GPU acceleration support for NVIDIA (NVENC), AMD (AMF), and Intel (QSV)
             
-            ### Downloads
+            ### 📥 Downloads
             - **Windows**: Download `CompressO_x64.msi` or `CompressO_x64-setup.exe`
             - **macOS (Apple Silicon)**: Download `CompressO_aarch64.dmg`
             - **macOS (Intel)**: Download `CompressO_x64.dmg`
             - **Linux**: Download `CompressO_amd64.deb` or `CompressO_amd64.AppImage`
-          draft: false
+          releaseDraft: false
           prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          args: ${{ matrix.args }}
