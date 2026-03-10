@@ -20,7 +20,7 @@
     "tauri:build:mac:x64": "tauri build --target x86_64-apple-darwin",
     "tauri:build:mac": "pnpm tauri:build:mac:arm64 && pnpm tauri:build:mac:x64",
     "homebrew:release": "./scripts/homebrew-release.sh",
-    "pnpm:devPreinstall": "fnm use",
+    "pnpm:devPreinstall": "fnm use 2>/dev/null || true",
     "postinstall": "husky install || true",
     "lint-staged": "lint-staged",
     "tsc:check": "tsc --noEmit --skipLibCheck"
