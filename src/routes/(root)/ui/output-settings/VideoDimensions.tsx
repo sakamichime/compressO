@@ -8,25 +8,35 @@ import Button from '@/components/Button'
 import NumberInput from '@/components/NumberInput'
 import Switch from '@/components/Switch'
 import { slideDownTransition } from '@/utils/animation'
-import { appProxy } from '../../-state'
+import { appProxy, normalizeBatchVideosConfig } from '../../-state'
 
 type VideoDimensionsProps = {
   videoIndex: number
 }
 
 function VideoDimensions({ videoIndex }: VideoDimensionsProps) {
-  if (videoIndex < 0) return
-
   const { t } = useTranslation()
   const {
-    state: { videos, isCompressing, isProcessCompleted, isLoadingFiles },
+    state: {
+      videos,
+      isCompressing,
+      isProcessCompleted,
+      isLoadingFiles,
+      commonConfigForBatchCompression,
+    },
   } = useSnapshot(appProxy)
-  const video = videos.length > 0 ? videos[videoIndex] : null
+
+  const isBatchMode = videoIndex < 0 && videos.length > 1
+  const video = videos.length > 0 && videoIndex >= 0 ? videos[videoIndex] : null
   const { config, dimensions: videoOriginalDimensions } = video ?? {}
+
+  const batchConfig = isBatchMode ? commonConfigForBatchCompression : null
+
   const {
     shouldEnableCustomDimensions,
     customDimensions: videoCustomDimensions,
-  } = config ?? {}
+  } = config ?? batchConfig ?? {}
+
   const isCropping = Boolean(
     config?.shouldTransformVideo &&
       config?.transformVideoConfig?.transforms?.crop,
@@ -44,9 +54,18 @@ function VideoDimensions({ videoIndex }: VideoDimensionsProps) {
   }))
 
   useEffect(() => {
+    if (isBatchMode && videoCustomDimensions) {
+      setDimensions({
+        width: videoCustomDimensions[0],
+        height: videoCustomDimensions[1],
+      })
+    }
+  }, [isBatchMode, videoCustomDimensions])
+
+  useEffect(() => {
     let unsubscribe: (() => void) | undefined
 
-    if (config) {
+    if (config && !isBatchMode) {
       unsubscribe = subscribeKey(
         appProxy.state.videos[videoIndex].config,
         'shouldTransformVideo',
@@ -77,10 +96,12 @@ function VideoDimensions({ videoIndex }: VideoDimensionsProps) {
     return () => {
       unsubscribe?.()
     }
-  }, [videoIndex, config])
+  }, [videoIndex, config, isBatchMode])
 
   useEffect(() => {
     let unsubscribe: (() => void) | undefined
+
+    if (isBatchMode) return
 
     const transformVideoConfig =
       appProxy.state.videos[videoIndex]?.config?.transformVideoConfig
@@ -108,13 +129,32 @@ function VideoDimensions({ videoIndex }: VideoDimensionsProps) {
     return () => {
       unsubscribe?.()
     }
-  }, [videoIndex, isCropping])
+  }, [videoIndex, isCropping, isBatchMode])
 
   const handleChange = useCallback(
     (value: number, type: 'width' | 'height') => {
-      if (!value || value <= 0 || videoIndex < 0) {
+      if (!value || value <= 0) {
         return
       }
+
+      if (isBatchMode) {
+        const _dimensions: [number, number] =
+          type === 'width'
+            ? [value, dimensions.height]
+            : [dimensions.width, value]
+        setDimensions((s) => ({
+          ...s,
+          width: _dimensions[0],
+          height: _dimensions[1],
+        }))
+        appProxy.state.commonConfigForBatchCompression.customDimensions =
+          _dimensions
+        normalizeBatchVideosConfig()
+        return
+      }
+
+      if (videoIndex < 0) return
+
       const targetVideo = appProxy.state.videos[videoIndex]
       const targetVideoDimensions = targetVideo.config?.shouldTransformVideo
         ? {
@@ -147,8 +187,20 @@ function VideoDimensions({ videoIndex }: VideoDimensionsProps) {
       appProxy.state.videos[videoIndex].config.customDimensions = _dimensions
       appProxy.state.videos[videoIndex].isConfigDirty = true
     },
-    [videoIndex],
+    [videoIndex, isBatchMode, dimensions.height, dimensions.width],
   )
+
+  const handleSwitchToggle = useCallback(() => {
+    if (isBatchMode) {
+      appProxy.state.commonConfigForBatchCompression.shouldEnableCustomDimensions =
+        !shouldEnableCustomDimensions
+      normalizeBatchVideosConfig()
+    } else if (videoIndex >= 0 && appProxy.state.videos[videoIndex]?.config) {
+      appProxy.state.videos[videoIndex].config.shouldEnableCustomDimensions =
+        !shouldEnableCustomDimensions
+      appProxy.state.videos[videoIndex].isConfigDirty = true
+    }
+  }, [videoIndex, isBatchMode, shouldEnableCustomDimensions])
 
   const shouldDisableInput =
     videos.length === 0 || isCompressing || isProcessCompleted || isLoadingFiles
@@ -157,15 +209,7 @@ function VideoDimensions({ videoIndex }: VideoDimensionsProps) {
     <>
       <Switch
         isSelected={shouldEnableCustomDimensions}
-        onValueChange={() => {
-          if (appProxy.state.videos[videoIndex]?.config) {
-            appProxy.state.videos[
-              videoIndex
-            ].config.shouldEnableCustomDimensions =
-              !shouldEnableCustomDimensions
-            appProxy.state.videos[videoIndex].isConfigDirty = true
-          }
-        }}
+        onValueChange={handleSwitchToggle}
         isDisabled={shouldDisableInput}
       >
         <p className="text-gray-600 dark:text-gray-400 text-sm mr-2 w-full font-bold">
@@ -202,17 +246,29 @@ function VideoDimensions({ videoIndex }: VideoDimensionsProps) {
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
               {[
-                { label: '480p', width: 640 },
-                { label: '720p', width: 1280 },
-                { label: '1080p', width: 1920 },
-                { label: '2k', width: 2560 },
-                { label: '4k', width: 3840 },
+                { label: '480p', width: 640, height: 480 },
+                { label: '720p', width: 1280, height: 720 },
+                { label: '1080p', width: 1920, height: 1080 },
+                { label: '2k', width: 2560, height: 1440 },
+                { label: '4k', width: 3840, height: 2160 },
               ].map((preset) => (
                 <Button
                   size="sm"
                   radius="md"
                   key={preset.label}
-                  onPress={() => handleChange(preset.width, 'width')}
+                  onPress={() => {
+                    if (isBatchMode) {
+                      setDimensions({
+                        width: preset.width,
+                        height: preset.height,
+                      })
+                      appProxy.state.commonConfigForBatchCompression.customDimensions =
+                        [preset.width, preset.height] as [number, number]
+                      normalizeBatchVideosConfig()
+                    } else {
+                      handleChange(preset.width, 'width')
+                    }
+                  }}
                   isDisabled={shouldDisableInput}
                   className="min-w-[unset]"
                 >

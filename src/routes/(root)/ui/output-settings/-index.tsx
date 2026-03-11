@@ -313,6 +313,11 @@ function OutputSettings({ videoIndex }: OutputSettingsProps) {
                   <TrimVideo videoIndex={videoIndex} />
                   <Divider className="my-3" />
                 </>
+              ) : videoIndex < 0 && videos.length > 1 ? (
+                <>
+                  <VideoDimensions videoIndex={videoIndex} />
+                  <Divider className="my-3" />
+                </>
               ) : null}
               <>
                 <VideoFPS videoIndex={videoIndex} />
