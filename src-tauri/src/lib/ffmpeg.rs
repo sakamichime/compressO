@@ -398,8 +398,8 @@ impl FFMPEG {
                 quality_args_owned = vec!["-crf".to_string(), crf_value];
             }
         }
-        for arg in quality_args_owned.iter() {
-            cmd_args.push(arg.as_str());
+        for arg in quality_args_owned.iter().cloned() {
+            cmd_args.push(arg);
         }
 
         // Transforms
